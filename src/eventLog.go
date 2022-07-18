@@ -2,31 +2,13 @@ package src
 
 import (
 	"fmt"
+	"github.com/olekukonko/tablewriter"
 	"log"
+	"os"
 	"syscall"
 	"time"
 	"unsafe"
 )
-
-// OpenRemoteEventLog does the same as Open, but on different computer host.
-//func (el *EventLog)OpenRemoteEventLog(host, source string) {
-//	if source == "" {
-//		fmt.Println("Specify event log source")
-//	}
-//	var s *uint16
-//	if host != "" {
-//		s = syscall.StringToUTF16Ptr(host)
-//	}
-//	h, err := openEventLog(s, syscall.StringToUTF16Ptr(source))
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	buf := make([]byte, MAX_BUFFER_SIZE+1)
-//	el.Handle = h
-//	el.bufferSize = uint32(MAX_DEFAULT_BUFFER_SIZE)
-//	el.buffer = buf
-//	el.minRead = uint32(0)
-//}
 
 func openEventLog(uncServerName *uint16, sourceName *uint16) (handle syscall.Handle, err error) {
 	r0, _, e1 := syscall.Syscall(procOpenEventLog.Addr(), 2, uintptr(unsafe.Pointer(uncServerName)), uintptr(unsafe.Pointer(sourceName)), 0)
@@ -115,8 +97,33 @@ func formatMessage(flags uint32, source syscall.Handle, messageID uint32, langua
 	return
 }
 
+func (el *EventLog) checkData(info2 *rInfos){
+
+}
+
+func (el *EventLog) output(){
+	if len(el.success) > 0 {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"id","Time", "Source Ip", "Source Port","Account Name","Logon Process"})
+		for _, s := range(el.success){
+			//fmt.Println(fmt.Sprintf("time:%v,sip:%v,sport:%v,loginName:%v,loginprocess:%v",s.time,s.sip,s.sport,s.lName,s.lPro))
+			table.Append([]string{"4624",s.time,s.sip,s.sport,s.lName,s.lPro})
+		}
+		table.Render()
+	}
+	if len(el.fail) > 0 {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"Id","Time", "Source Ip", "Source Port","Account Name","Logon Process","Failure Reason"})
+		for _, s := range(el.fail){
+			//fmt.Println(fmt.Sprintf("time:%v,sip:%v,sport:%v,loginName:%v,loginprocess:%v,Reasons for failure%v",s.time,s.sip,s.sport,s.lName,s.lPro,s.failinfo))
+			table.Append([]string{"4625",s.time,s.sip,s.sport,s.lName,s.lPro,s.failinfo})
+		}
+		table.Render()
+	}
+}
+
 // 搜索日志
-func (el *EventLog) Run(logName string) (err error) {
+func (el *EventLog) run(logName string) {
 	// 获取statefile
 	recordNumber := uint32(0)
 
@@ -148,7 +155,7 @@ func (el *EventLog) Run(logName string) (err error) {
 	// 比较日志数量
 	if oldnum <= recordNumber {
 		if recordNumber == oldnum+num-1 {
-			return err
+			return
 		}
 		recordNumber++
 	} else {
@@ -179,7 +186,7 @@ loop_events:
 		if err != nil {
 			if err != syscall.ERROR_INSUFFICIENT_BUFFER {
 				if err != errorInvalidParameter {
-					return err
+					return
 				}
 				break
 			}
@@ -312,6 +319,5 @@ loop_events:
 			}
 		}
 	}
-	return nil
 }
 

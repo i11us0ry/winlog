@@ -1,7 +1,12 @@
 package main
 
-import "winlog/src"
+import (
+	"flag"
+	"winlog/src"
+)
 
 func main(){
-	src.Start()
+	PathPtr := flag.String("p", "", "mimi path")
+	flag.Parse()
+	src.Start(*PathPtr)
 }

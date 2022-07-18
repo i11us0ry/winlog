@@ -22,11 +22,30 @@ var (
 )
 
 type Infos interface {
-	getRdp()
-	getMstscKeys()
-	getMstscValue(key string)
-	getDefaultMstscValues()
-	getDefaultMstsc(name string)
+	run(string)
+	checkData(*rInfos)
+	output()
+}
+
+// mstsc保存的远程连接的相关信息
+type rInfo struct {
+	host 	string
+	port 	string
+	user 	string
+	pass 	string
+}
+
+type rInfos struct {
+	rInfo		[]rInfo
+}
+
+type PassInfo struct {
+	host 	string
+	pass 	string
+}
+
+type PassInfos struct {
+	passInfos 	[]PassInfo
 }
 
 type Info struct {
@@ -35,10 +54,6 @@ type Info struct {
 	mstscValues 			[][]string
 	mstscDefaultValueNames 	[]string
 	mstscDefaultValues      []string
-}
-
-type Event interface {
-	Run(logName string) (err error)
 }
 
 type idRange struct {
@@ -69,68 +84,43 @@ type EventLog struct {
 	fail 		   []FailInfo
 }
 
-func Start() {
+func Start(mimi string) {
+	var ri = &rInfos{}
+	// 获取mstsc信息
 	var info = Info{}
 	var infos Infos =  &info
-	infos.getRdp()
-	infos.getMstscKeys()
-	for _, keyName := range(info.mstscKeys){
-		infos.getMstscValue(keyName)
-	}
-	infos.getDefaultMstscValues()
-	for _, name := range(info.mstscDefaultValueNames){
-		infos.getDefaultMstsc(name)
-	}
+	infos.run("")
+	infos.checkData(ri)
+	//infos.output()
 
-	//fmt.Println(info.port,"\n",info.mstscValues,"\n",info.mstscDefaultValues,"\n")
+	// 获取登录日志
+	var eventLog = EventLog{}
+	var event Infos = &eventLog
+	eventLog.eventID = append(eventLog.eventID,idRange{4624,4624})
+	eventLog.eventID = append(eventLog.eventID,idRange{4625,4625})
+	event.run(Log)
+
+	// 抓取密码
+	var passInfo = PassInfos{}
+	var getPwd Infos = &passInfo
+	getPwd.run(mimi)
+	getPwd.checkData(ri)
+	//getPwd.output()
+
 	if  info.port != 0{
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"RdpPort"})
+		table.SetHeader([]string{"local_Rdp_Port"})
 		table.Append([]string{strconv.FormatInt(int64(info.port),10)})
 		table.Render()
 	}
 
-	if len(info.mstscValues) > 0 {
+	if len(ri.rInfo) > 0 {
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Hosts","Name"})
-		for _,hn := range(info.mstscValues){
-			table.Append([]string{hn[0],hn[1]})
+		table.SetHeader([]string{"r_Host","r_Port","user","pass"})
+		for _,v := range(ri.rInfo){
+			table.Append([]string{v.host,v.port,v.user,v.pass})
 		}
 		table.Render()
 	}
-
-	if len(info.mstscDefaultValues) > 0 {
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Hosts"})
-		for _,h := range(info.mstscDefaultValues){
-			table.Append([]string{h})
-		}
-		table.Render()
-	}
-
-	var eventLog = EventLog{}
-	var event Event = &eventLog
-
-	eventLog.eventID = append(eventLog.eventID,idRange{4624,4624})
-	eventLog.eventID = append(eventLog.eventID,idRange{4625,4625})
-	// 启动
-	event.Run(Log)
-	if len(eventLog.success) > 0 {
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"id","Time", "Source Ip", "Source Port","Account Name","Logon Process"})
-		for _, s := range(eventLog.success){
-			//fmt.Println(fmt.Sprintf("time:%v,sip:%v,sport:%v,loginName:%v,loginprocess:%v",s.time,s.sip,s.sport,s.lName,s.lPro))
-			table.Append([]string{"4624",s.time,s.sip,s.sport,s.lName,s.lPro})
-		}
-		table.Render()
-	}
-	if len(eventLog.fail) > 0 {
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Id","Time", "Source Ip", "Source Port","Account Name","Logon Process","Failure Reason"})
-		for _, s := range(eventLog.fail){
-			//fmt.Println(fmt.Sprintf("time:%v,sip:%v,sport:%v,loginName:%v,loginprocess:%v,Reasons for failure%v",s.time,s.sip,s.sport,s.lName,s.lPro,s.failinfo))
-			table.Append([]string{"4625",s.time,s.sip,s.sport,s.lName,s.lPro,s.failinfo})
-		}
-		table.Render()
-	}
+	event.output()
 }
